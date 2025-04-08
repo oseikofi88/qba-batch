@@ -4,6 +4,8 @@ import javax.sql.DataSource;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
+import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -11,20 +13,22 @@ import org.springframework.batch.item.database.JdbcBatchItemWriter;
 import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 
 @Configuration
+@EnableBatchProcessing
 public class BatchConfiguration {
 
-	// tag::readerwriterprocessor[]
 	@Bean
-	public FlatFileItemReader<Discount> reader() {
+	@StepScope
+	public FlatFileItemReader<Discount> reader(@Value("#{jobParameters['filePaths']}") String filePath) {
 		return new FlatFileItemReaderBuilder<Discount>()
 				.name("personItemReader")
-				.resource(new ClassPathResource("sample-data.csv"))
+				.resource(new FileSystemResource(filePath))
 				.delimited()
 				.names("name", "percentage")
 				.targetType(Discount.class)
@@ -57,7 +61,8 @@ public class BatchConfiguration {
 
 	@Bean
 	public Step step1(JobRepository jobRepository, DataSourceTransactionManager transactionManager,
-			FlatFileItemReader<Discount> reader, DiscountItemProcessor processor, JdbcBatchItemWriter<Discount> writer) {
+			FlatFileItemReader<Discount> reader, DiscountItemProcessor processor,
+			JdbcBatchItemWriter<Discount> writer) {
 		return new StepBuilder("step1", jobRepository)
 				.<Discount, Discount>chunk(3, transactionManager)
 				.reader(reader)
